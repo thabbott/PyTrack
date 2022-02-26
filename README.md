@@ -6,6 +6,4 @@ You can create a Conda environment for the particle tracker using the environmen
 conda create --name pytrack --file environment.txt
 ```
 
-An MP4 file for testing the particle tracker (used in the demo below) is available at https://drive.google.com/file/d/1G3cqyRJSC0-zR0z1_zTEUU8DXOLQbLro/view?usp=sharing.
-
-<iframe src="https://player.vimeo.com/video/682323089?h=ffb6666d35" width="640" height="449" frameborder="0" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe>
+An MP4 file for testing the particle tracker (used in [this demo](https://vimeo.com/682323089)) is available at https://drive.google.com/file/d/1G3cqyRJSC0-zR0z1_zTEUU8DXOLQbLro/view?usp=sharing.
