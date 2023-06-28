@@ -1,4 +1,3 @@
-import skvideo.io
 import matplotlib.pyplot as plt
 from matplotlib.widgets import CheckButtons, Button, Slider
 import numpy as np

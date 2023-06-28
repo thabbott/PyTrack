@@ -1,4 +1,3 @@
-import skvideo.io
 import skimage.io
 from skimage import measure
 from collections import deque

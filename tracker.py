@@ -1,3 +1,4 @@
+import pims
 import skvideo.io
 from skimage import measure
 import numpy as np
@@ -14,7 +15,7 @@ class Tracker():
 
         # Read entire video file and metadata into memory
         print('Reading video file')
-        self.frames = skvideo.io.vread(fname)
+        self.frames = pims.PyAVReaderIndexed(fname)
         meta = skvideo.io.ffprobe(fname)
         print('Finished reading video file')
 
@@ -29,7 +30,8 @@ class Tracker():
         self.dframe = 1
         # Video FPS
         self.fps = eval(meta['video']['@avg_frame_rate'])
-        print(self.fps)
+        print('Video frame rate: %.1f fps' % self.fps)
+        print('Video length: %d frames' % self.num_frames())
 
         # Set index of current frame
         self.iframe = 0
@@ -43,6 +45,12 @@ class Tracker():
         # Initialize coordinates of candidate point
         self.tx = np.nan
         self.ty = np.nan
+
+    def num_frames(self):
+        return len(self.frames)
+
+    def get_frame(self, iframe):
+        return self.frames[iframe]
 
     def reset(self):
         """ Reset tracker without re-reading video file. """
@@ -60,7 +68,7 @@ class Tracker():
         print('Processing frame %d' % self.iframe)
 
         # Create binary mask
-        self.frame = self.frames[self.iframe,:,:,:]
+        self.frame = self.get_frame(self.iframe)
         lightness = np.mean(self.frame, axis = -1)
         if self.dots_are_darker:
             self.binary = (lightness < self.threshold)
@@ -114,7 +122,7 @@ class Tracker():
 
         # Increment frame counter and check bounds
         self.iframe += self.dframe
-        self.iframe = min(self.iframe, self.frames.shape[0] - 1)
+        self.iframe = min(self.iframe, self.num_frames() - 1)
 
     def rewind(self):
         """ Rewind track. """

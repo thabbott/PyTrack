@@ -9,3 +9,5 @@ dependencies:
   - scikit-image>=0.19.2
   - scikit-video>=1.1.11
   - ffmpeg>=6.0.0
+  - av>=10.0.0
+  - pims>=0.6.1
