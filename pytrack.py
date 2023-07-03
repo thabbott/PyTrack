@@ -165,7 +165,7 @@ rewbut.on_clicked(rewfunc)
 
 # Play button
 playax = plt.axes([4*colwidth+pad,0.8+pad,colwidth-2*pad,0.06-pad])
-playlab = ['Play (spacebar)', 'Pause (spacebar)']
+playlab = ['Run (spacebar)', 'Pause (spacebar)']
 playstat = 0
 playbut = Button(playax, playlab[playstat])
 def playfunc(event):
