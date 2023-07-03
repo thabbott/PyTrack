@@ -31,7 +31,7 @@ class Tracker():
         # Video FPS
         self.fps = eval(meta['video']['@avg_frame_rate'])
         print('Video frame rate: %.1f fps' % self.fps)
-        print('Video length: %d frames' % self.num_frames())
+        print('Video length: %d frame' % self.num_frames())
 
         # Set index of current frame
         self.iframe = 0

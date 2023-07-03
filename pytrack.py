@@ -1,5 +1,5 @@
 import matplotlib.pyplot as plt
-from matplotlib.widgets import CheckButtons, Button, Slider
+from matplotlib.widgets import CheckButtons, Button, Slider, TextBox
 import numpy as np
 import string
 import random
@@ -15,11 +15,13 @@ if len(sys.argv) != 2:
 # Path to video file
 fname = sys.argv[1]
 # Figure size (inches)
-figsize = (12, 8)
+figsize = (15, 8)
 # Figure DPI (ppi)
 dpi = 100
 # Padding around elements
 pad = 0.01
+# Column width
+colwidth = 1/6
 
 # Generate name for output file
 def gen_savename():
@@ -60,7 +62,7 @@ info = plt.annotate(
     xy = (pad, 1-pad), xycoords = 'figure fraction', va = 'top', ha = 'left')
 
 # Display controls
-cbax = plt.axes([0.12+pad,0.8+pad,0.2-2*pad,0.2-2*pad])
+cbax = plt.axes([colwidth/2+pad,0.8+pad,colwidth-2*pad,0.2-2*pad])
 cblabels = ['Show binary', 'Show centroids', 'Show track']
 cbstatuses = [False, False, False]
 cbut = CheckButtons(cbax, cblabels, cbstatuses)
@@ -108,7 +110,7 @@ def update():
     plt.draw()
 
 # Tracking controls
-trax = plt.axes([0.6+pad,0.8+pad,0.2-2*pad,0.2-2*pad])
+trax = plt.axes([3*colwidth+pad,0.8+pad,colwidth-2*pad,0.2-2*pad])
 trlabels = ['Track', 'Dark dots', 'Reset on save']
 trstatuses = [False, True, False]
 trbut = CheckButtons(trax, trlabels, trstatuses)
@@ -144,7 +146,7 @@ def onclick(event):
 cid = fig.canvas.mpl_connect('button_press_event', onclick)
 
 # Advance button
-advax = plt.axes([0.8+pad,0.933+pad,0.2-2*pad,0.06-pad])
+advax = plt.axes([4*colwidth+pad,0.933+pad,colwidth-2*pad,0.06-pad])
 advbut = Button(advax, 'Advance (enter)')
 def advfunc(event):
     tracker.advance()
@@ -153,16 +155,46 @@ def advfunc(event):
 advbut.on_clicked(advfunc)
 
 # Rewind button
-rewax = plt.axes([0.8+pad,0.867+pad,0.2-2*pad,0.06-pad])
-rewbut = Button(rewax, 'Rewind (backspace)')
+rewax = plt.axes([4*colwidth+pad,0.867+pad,colwidth-2*pad,0.06-pad])
+rewbut = Button(rewax, 'Rewind (shift+enter)')
 def rewfunc(event):
     tracker.rewind()
     tracker.update()
     update()
 rewbut.on_clicked(rewfunc)
 
+# Play button
+playax = plt.axes([4*colwidth+pad,0.8+pad,colwidth-2*pad,0.06-pad])
+playlab = ['Play (spacebar)', 'Pause (spacebar)']
+playstat = 0
+playbut = Button(playax, playlab[playstat])
+def playfunc(event):
+    global playstat 
+    if playstat == 0:
+        playstat = 1 
+    else:
+        playstat = 0
+    playbut.label.set_text(playlab[playstat])
+    plt.draw()
+playbut.on_clicked(playfunc)
+
+# Goto-frame controls 
+frameax = plt.axes([5.15*colwidth+pad,0.933+pad,0.85*colwidth-2*pad,0.06-pad])
+framebox = TextBox(frameax, 'Frame', initial='')
+gtax = plt.axes([5*colwidth+pad,0.867+pad,colwidth-2*pad,0.06-pad])
+gtbut = Button(gtax, 'Jump to frame')
+def gtfunc(event):
+    try:
+        frame = int(framebox.text)
+        tracker.iframe = max(0, min(frame - 1, tracker.num_frames() - 1))
+    except ValueError:
+        print('Could not convert %s to frame number' % (framebox.text))
+    tracker.update()
+    update()
+gtbut.on_clicked(gtfunc)
+
 # Save button
-saveax = plt.axes([0.8+pad,0.8+pad,0.2-2*pad,0.06-pad])
+saveax = plt.axes([5*colwidth+pad,0.8+pad,colwidth-2*pad,0.06-pad])
 savebut = Button(saveax, 'Save (%s)' % savename)
 def savefunc(event):
     global tracker
@@ -178,7 +210,7 @@ def savefunc(event):
 savebut.on_clicked(savefunc)
 
 # Threshold control
-thrax = plt.axes([0.38+pad,0.933+pad,0.2-2*pad,0.06-pad])
+thrax = plt.axes([1.85*colwidth+pad,0.933+pad,colwidth-2*pad,0.06-pad])
 thrslider = Slider(thrax, 'Threshold', 0, 255, valinit = tracker.threshold, valstep = 1)
 def thrfunc(val):
     tracker.threshold = int(val)
@@ -186,7 +218,7 @@ def thrfunc(val):
 thrslider.on_changed(thrfunc)
 
 # Frame increment control
-dfrax = plt.axes([0.38+pad,0.8+pad,0.2-2*pad,0.06-pad])
+dfrax = plt.axes([1.85*colwidth+pad,0.8+pad,colwidth-2*pad,0.06-pad])
 dfrslider = Slider(dfrax, 'Step size', 1, 30, valinit = tracker.dframe, valstep = 1)
 def dfrfunc(val):
     tracker.dframe = int(val)
@@ -194,7 +226,7 @@ def dfrfunc(val):
 dfrslider.on_changed(dfrfunc)
 
 # Update button
-updax = plt.axes([0.38+pad,0.867+pad,0.2-2*pad,0.06-pad])
+updax = plt.axes([1.85*colwidth+pad,0.867+pad,colwidth-2*pad,0.06-pad])
 updbut = Button(updax, 'Update')
 def updfunc(event):
     tracker.update()
@@ -203,10 +235,24 @@ updbut.on_clicked(updfunc)
 
 # Add keyboard shortcuts
 def onpress(event):
+    print(event.key)
     if event.key == 'enter':
         advfunc(event)
-    if event.key == 'backspace':
+    if event.key == 'shift+enter':
         rewfunc(event)
+    if event.key == ' ':
+        playfunc(event)
 fig.canvas.mpl_connect('key_press_event', onpress)
+
+# Implement automatic advancing with timer-driven event 
+def ontick():
+    if playstat == 1:
+        advfunc(None)
+timer = fig.canvas.new_timer(interval=300)
+timer.add_callback(ontick)
+timer.start()
+
+# Disable keyboard shortcuts when text box is active 
+
 
 plt.show()
