@@ -1,5 +1,7 @@
 import matplotlib.pyplot as plt
-from matplotlib.widgets import CheckButtons, Button, Slider, TextBox
+from matplotlib.widgets import (
+        CheckButtons, RadioButtons, Button, Slider, TextBox
+)
 import numpy as np
 import string
 import random
@@ -38,22 +40,22 @@ savename = gen_savename()
 tracker = Tracker(fname)
 tracker.process_frame()
 
-# Start track
-tracker.track_at(636, 465)
-
 # Set up GUI
 fig = plt.figure(figsize = figsize, dpi = 100)
 
+# Track whether shift key is held 
+shift_is_down = False
+
 # Add area for displaying current frame and track
-imax = plt.axes([pad,pad,1-2*pad,0.8-2*pad])
+imax = plt.axes([pad,pad,1-colwidth-2*pad,0.8-2*pad])
 imax.tick_params(axis = 'both', which = 'both', bottom = False, top = False,
     labelbottom = False, right = False, left = False, labelleft = False)
 
 # Plot current frame
 im = imax.imshow(tracker.frame)
 centroids = imax.plot([], [], 'x', color = 'white')[0]
-candidate = imax.plot([], [], 'x', color = 'red')[0]
-track = imax.plot([], [], '.', color = 'blue')[0]
+candidates = [] # imax.plot([], [], 'x', color = 'red')[0]
+tracks = [] # imax.plot([], [], '.', color = 'blue')[0]
 
 # Add information about current frame
 info = plt.annotate(
@@ -86,9 +88,11 @@ def cbfunc(label):
     if ind == 2:
         show_track = status[ind]
         if show_track:
-            track.set_data(tracker.trackx, tracker.tracky)
+            for i, track in enumerate(tracks):
+                track.set_data(tracker.trackx[i], tracker.tracky[i])
         else:
-            track.set_data([], [])
+            for i, track in enumerate(tracks):
+                track.set_data([], [])
     plt.draw()
 cbut.on_clicked(cbfunc)
 
@@ -102,12 +106,79 @@ def update():
     if status[1]:
         centroids.set_data(tracker.cx, tracker.cy)
     if status[2]:
-        track.set_data(tracker.trackx, tracker.tracky)
-    candidate.set_data(tracker.tx, tracker.ty)
+        for i, track in enumerate(tracks):
+            track.set_data(tracker.trackx[i], tracker.tracky[i])
+    for i, candidate in enumerate(candidates):
+        candidate.set_data(tracker.tx[i], tracker.ty[i])
     info.set_text(
         'Current frame:\n%d\n\nTotal frames:\n%d\n\nCurrent time:\n%d s' %
         (tracker.iframe+1, tracker.frames.shape[0], tracker.iframe/tracker.fps))
     plt.draw()
+    
+# Track selector
+labax = plt.axes([1-colwidth+pad,0.74-pad,colwidth-2*pad,0.06+pad])
+labax.axis('off')
+labax.annotate("Track selector", (0.5, 0.5), xycoords='axes fraction',
+               ha='center', va='center')
+
+selax = []
+selbut = []
+def track_status():
+    status = []
+    for cb in selbut:
+        status += cb.get_status()
+    return status
+def sync_display_with_track_selector(event):
+    status = track_status()
+    for i, track in enumerate(tracks):
+        if status[i]:
+            track.set_color('cyan')
+        else: track.set_color('blue')
+    for i, candidate in enumerate(candidates):
+        if status[i]:
+            candidate.set_color('cyan')
+        else:
+            candidate.set_color('red')
+    plt.draw()
+def update_track_selector():
+    global selax 
+    global selbut
+    status = track_status()
+    if len(status) > tracker.num_tracks():
+        status = [False]*tracker.num_tracks()
+    else:
+        status += [False]*(tracker.num_tracks() - len(status))
+    for ax in selax:
+        ax.clear()
+        ax.remove()
+    selax.clear()
+    selbut.clear()
+    for col in range((tracker.num_tracks()-1)//32 + 1):
+        rows = min(32, tracker.num_tracks() - 32*col)
+        frac_empty = 0.972*(1 - rows/32)
+        selax.append(plt.axes([
+            1-colwidth+pad+col*(colwidth-2*pad)/4,
+            0.06 + 2*pad + (0.72-6*pad)*frac_empty,
+            colwidth/2-2*pad,
+            (0.72-6*pad)*(1 - frac_empty)
+        ]))
+        selax[-1].axis('off')
+        sellabels = ['%d' % (i + 1) for i in range(32*col, 32*col + rows)]
+        selstatuses = [status[i] for i in range(32*col, 32*col + rows)]
+        selbut.append(CheckButtons(selax[-1], sellabels, selstatuses))
+        selbut[-1].on_clicked(sync_display_with_track_selector)
+    plt.draw()
+delax = plt.axes([1-colwidth+pad,pad,colwidth-2*pad,0.06-pad])
+delbut = Button(delax, 'Delete selected track(s)')
+def delfunc(event):
+    status = track_status()
+    for i in reversed(range(len(status))):
+        if status[i]:
+            tracker.remove_track(i)
+            tracks.pop(i).remove()
+            candidates.pop(i).remove()
+    update_track_selector()
+delbut.on_clicked(delfunc)
 
 # Tracking controls
 trax = plt.axes([3*colwidth+pad,0.8+pad,colwidth-2*pad,0.2-2*pad])
@@ -121,13 +192,20 @@ def trfunc(label):
     status = trbut.get_status()
     if ind == 0:
         tracker.track = status[ind]
-        if tracker.track and np.isnan(tracker.tx) and len(tracker.trackx) > 0:
-            tracker.track_at(tracker.trackx[-1], tracker.tracky[-1])
-            candidate.set_data(tracker.tx, tracker.ty)
-        if not tracker.track:
-            candidate.set_data([], [])
-            tracker.tx = np.nan
-            tracker.ty = np.nan
+        if tracker.track:
+            for i in tracker.track_indices():
+                if np.isnan(tracker.tx[i]) and len(tracker.trackx[i]) > 0:
+                    tracker.track_at(
+                            i, 
+                            tracker.trackx[i][-1], 
+                            tracker.tracky[i][-1]
+                    )
+                candidates[i].set_data(tracker.tx[i], tracker.ty[i])
+        else:
+            for i in tracker.track_indices():
+                candidates[i].set_data([], [])
+                tracker.tx[i] = np.nan 
+                tracker.ty[i] = np.nan
     if ind == 1:
         tracker.dots_are_dark = status[ind]
     if ind == 2:
@@ -140,8 +218,25 @@ def onclick(event):
     if event.inaxes == imax:
         x = event.xdata
         y = event.ydata
-        tracker.track_at(x, y)
-        candidate.set_data(tracker.tx, tracker.ty)
+        if shift_is_down:
+            tracker.add_track()
+            tracker.track_at(tracker.last_track(), x, y)
+            candidates.append(imax.plot(
+                tracker.tx[tracker.last_track()], 
+                tracker.ty[tracker.last_track()], 
+                'x', color = 'red'
+            )[0])
+            tracks.append(imax.plot([], [], '.', color = 'blue')[0])
+            update_track_selector()
+        else:
+            status = track_status()
+            for track in tracker.track_indices():
+                if status[track]:
+                    tracker.track_at(track, x, y)
+                    candidates[track].set_data(
+                        tracker.tx[track], 
+                        tracker.ty[track]
+                )
         plt.draw()
 cid = fig.canvas.mpl_connect('button_press_event', onclick)
 
@@ -235,14 +330,22 @@ updbut.on_clicked(updfunc)
 
 # Add keyboard shortcuts
 def onpress(event):
-    print(event.key)
+    global shift_is_down
     if event.key == 'enter':
         advfunc(event)
     if event.key == 'shift+enter':
         rewfunc(event)
     if event.key == ' ':
         playfunc(event)
+    if event.key == 'shift':
+        shift_is_down = True
+def onrelease(event):
+    global shift_is_down
+    print(event.key)
+    if event.key == 'shift':
+        shift_is_down = False 
 fig.canvas.mpl_connect('key_press_event', onpress)
+fig.canvas.mpl_connect('key_release_event', onrelease)
 
 # Implement automatic advancing with timer-driven event 
 def ontick():
@@ -251,8 +354,5 @@ def ontick():
 timer = fig.canvas.new_timer(interval=300)
 timer.add_callback(ontick)
 timer.start()
-
-# Disable keyboard shortcuts when text box is active 
-
 
 plt.show()
